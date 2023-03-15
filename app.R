@@ -1,0 +1,128 @@
+# preload
+rm(list=ls());gc()
+# setwd('/project/CRI/DeBerardinis_lab/lcai/GMDP/metabolomics_manuscript_2022/app/v2/')
+library(data.table)
+library(shinyjs)
+library(stringr)
+library(shinycssloaders)
+library(plotly)
+library(dplyr)
+library(tidyverse)
+library(DT)
+library(reshape2)
+library(nlme)
+library(Hmisc)
+library(RColorBrewer)
+library(patchwork)
+library(ggpubr)
+library(ggrepel)
+library(pathview)
+library(bslib)
+library(htmltools)
+library(shinyWidgets)
+library(openxlsx)
+library(ape)
+library(ComplexHeatmap)
+library(InteractiveComplexHeatmap)
+load('data/input.RData')
+DxFC<-readRDS('data/Dx_log2FC.rds')
+# need to be incorporated into data prep
+z.m.stat<-as.data.table(do.call(rbind,lapply(joint.cor$metabolite,function(x){
+  df<-data.table(x=run.data$plasma$robustZ[joint.subject$p.ind,x],y=run.data$fibroblast$robustZ[joint.subject$f.ind,x])[!is.na(x) & !is.na(y)]
+  c(unlist(with(df,cor.test(x,y)[c('estimate','p.value')])),nrow(df))
+})))
+setnames(z.m.stat,c('r','pv','n'))
+z.m.stat[,padj:=signif(p.adjust(pv,'BH'),2)][,r:=round(r,2)][,pv:=signif(pv,2)]
+
+s.stat<-as.data.table(do.call(rbind,lapply(1:nrow(joint.subject),function(i){
+  df<-data.table(x=run.data$plasma$mData[joint.subject$p.ind[i],joint.cor$metabolite],y=run.data$fibroblast$mData[joint.subject$f.ind[i],joint.cor$metabolite])[!is.na(x) & !is.na(y)]
+  c(unlist(with(df,cor.test(x,y)[c('estimate','p.value')])),nrow(df))
+})))
+setnames(s.stat,c('r','pv','n'))
+s.stat[,padj:=signif(p.adjust(pv,'BH'),2)][,r:=round(r,2)][,pv:=signif(pv,2)]
+
+z.s.stat<-as.data.table(do.call(rbind,lapply(1:nrow(joint.subject),function(i){
+  df<-data.table(x=run.data$plasma$robustZ[joint.subject$p.ind[i],joint.cor$metabolite],y=run.data$fibroblast$robustZ[joint.subject$f.ind[i],joint.cor$metabolite])[!is.na(x) & !is.na(y)]
+  c(unlist(with(df,cor.test(x,y)[c('estimate','p.value')])),nrow(df))
+})))
+setnames(z.s.stat,c('r','pv','n'))
+z.s.stat[,padj:=signif(p.adjust(pv,'BH'),2)][,r:=round(r,2)][,pv:=signif(pv,2)]
+m.stat<-joint.cor[,2:5,with=F]
+joint.cor<-joint.cor[,c(1,6:8),with=F]
+joint.stat<-list(metabolite=list(m=m.stat,z=z.m.stat),sample=list(m=s.stat,z=z.s.stat))
+
+
+ui <- fluidPage(
+  navbarPage(title = "GMDP database",
+             # theme = shinytheme("united"),
+             theme = bs_theme(bg = "#FFFFFF",fg = "#E95420",primary = "#E95420"),
+             navbarMenu(title="Data overview",
+                        tabPanel(title="Dashboard",
+                                 source(file.path("UI","Dashboard_UI.R"), local=TRUE)$value),
+                        tabPanel(title="Metadata",
+                                 source(file.path("UI", "Metadata_UI.R"),  local = TRUE)$value),
+                        tabPanel(title="Download processed data",
+                                 source(file.path("UI", "ProcessedDL_UI.R"),  local = TRUE)$value)
+             ),
+             navbarMenu(title="Metabolic deviation",
+                        tabPanel(title="Z-score viewer",
+                                 source(file.path("UI","zScoreViewer_UI.R"), local=TRUE)$value),
+                        tabPanel(title="Dx vs. reference comparison",
+                                 source(file.path("UI","DxMet_UI.R"), local=TRUE)$value),
+                        tabPanel(title="Pathway view",
+                                 source(file.path("UI","Pathview_UI.R"), local=TRUE)$value),
+                        tabPanel(title="Review all outliers",
+                                 source(file.path("UI","MetabolicOutlier_UI.R"), local=TRUE)$value)
+             ),
+             navbarMenu(title = "Metabolic neighbors",
+                        tabPanel(title="Metabolite clustering",
+                                 source(file.path("UI","MetabCluster_UI.R"), local=TRUE)$value),
+                        tabPanel(title="Neighbor distance table",
+                                 source(file.path("UI","Neighbor_UI.R"), local=TRUE)$value)
+             ),
+             navbarMenu(title="Plasma-vs-fibroblast comparison",
+                        tabPanel(title="Plasma-fibroblast concordance",
+                                 source(file.path("UI","PFcomparisonConcordance_UI.R"), local=TRUE)$value),
+                        tabPanel(title="Custom metabolite pairwise correlations",
+                                 source(file.path("UI", "PFcomparisonCustomCor_UI.R"),  local = TRUE)$value),
+                        tabPanel(title="Pathway-specific metabolite pairwise correlations",
+                                 source(file.path("UI", "PFcomparisonPathwayCor_UI.R"),  local = TRUE)$value),
+                        tabPanel(title="Reaction-specific metabolite pairwise correlations",
+                                 source(file.path("UI", "PFcomparisonReactionCor_UI.R"),  local = TRUE)$value)
+             ),
+             tabPanel(title="Tutorials",
+                      source(file.path("UI","Tutorial_UI.R"), local=TRUE)$value
+             ),
+             tags$style(HTML('table.dataTable tr.selected td, table.dataTable td.selected {color:#631600 !important;background-color: #FDEEE9 !important;}'),
+                        type="text/css",
+                        ".shiny-output-error { visibility: hidden; }",
+                        ".shiny-output-error:before { visibility: hidden; }"
+             ),
+             tags$head(tags$style(HTML('.js-irs-0 .irs-single, .js-irs-0 .irs-bar-edge, .js-irs-0 .irs-bar {
+                                                  background: #E95420;
+                                                  border-top: 1px solid #a63811 ;
+                                                  border-bottom: 1px solid #a63811 ;}
+
+                            /* changes the colour of the number tags */
+                           .irs-from, .irs-to, .irs-single { background: #E95420 }'
+             )))
+  )
+  
+)
+server <- function(input, output,session) {
+  source(file.path("Server", "Metadata_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "ProcessedDL_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "zScoreViewer_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "Pathview_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "MetabolicOutlier_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "Neighbor_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "DxMet_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "MetabCluster_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "PFcomparisonConcordance_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "PFcomparisonCustomCor_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "PFcomparisonPathwayCor_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "PFcomparisonReactionCor_Server.R"),  local = TRUE)$value
+  source(file.path("Server", "Tutorial_Server.R"),  local = TRUE)$value
+}
+
+shinyApp(server = server, ui = ui)
