@@ -1,6 +1,7 @@
 fluidPage(
   fluidRow(
     column(4,
+           correlation_method_input("PFcompareReactionCor-method"),
            h4('Reaction-specific pathway correlation(s)'),
            useShinyjs(),
            radioButtons(inputId = 'PFcompareReactionCor-samples',label = "Samples to include",choices = c('Shared subjects','All subjects'),inline = T),

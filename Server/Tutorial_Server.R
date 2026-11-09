@@ -8,7 +8,11 @@ observeEvent(input$`tutorial-tabs`,{
     do.call(tagList, image_output_list)
   })
   lapply(ids,function(i){
-    output[[paste0('img',i)]] <-renderImage({list(src = paste0('www/tutorial/GMDP2_tutorial.',str_pad(i,width = 3,pad = '0',side = 'left'),'.jpeg'), 
-                                                  width = "1000px",height='750px', alt = "Image failed to render")}, deleteFile = FALSE)
+    output[[paste0('img',i)]] <- renderImage({
+      stem <- paste0('www/tutorial/tutorial.', str_pad(i, width = 3, pad = '0', side = 'left'))
+      # New correlation captures have lossless, higher-resolution PNG versions.
+      src <- if (file.exists(paste0(stem, '.png'))) paste0(stem, '.png') else paste0(stem, '.jpeg')
+      list(src = src, width = '1000px', height = '750px', alt = 'Image failed to render')
+    }, deleteFile = FALSE)
   })
 })

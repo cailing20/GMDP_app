@@ -1,47 +1,104 @@
-output$`PFcomparisonConcordance-metabolites`<-DT::renderDataTable({DT::datatable(cbind(joint.cor[,1,with=F],joint.stat$metabolite$m[,c('r','pv'),with=F]),rownames = F,options = list(pageLength=10),filter='top')})
-output$`PFcomparisonConcordance-subjects`<-DT::renderDataTable({DT::datatable(cbind(joint.subject[,1:2,with=F],joint.stat$sample$m[,c('r','pv'),with=F]),rownames = F,options = list(pageLength=10),filter='top',)})
+PFcomparisonConcordance.method <- reactive({correlation_method(input$`PFcomparisonConcordance-method`)})
+# Tables and downloads use the last confirmed method/data selection.
+PFcomparisonConcordance.tableRequest <- reactiveVal(list(method = 'pearson', stat = 'untransformed data'))
+observeEvent(input$`PFcomparisonConcordance-statSubmit`, {
+  PFcomparisonConcordance.tableRequest(list(
+    method = PFcomparisonConcordance.method(), stat = input$`PFcomparisonConcordance-stat`))
+})
+PFcomparisonConcordance.df <- reactive({
+  request <- PFcomparisonConcordance.tableRequest()
+  method <- request$method
+  stat <- if (request$stat == 'untransformed data') 'm' else 'z'
+  if (method == 'pearson') {
+    # Retain the original, rounded Pearson statistics supplied with the app.
+    metabolite <- copy(joint.stat$metabolite[[stat]])
+    sample <- copy(joint.stat$sample[[stat]])
+  } else {
+    key <- if (stat == 'm') 'mData' else 'robustZ'
+    p <- run.data$plasma[[key]][joint.subject$p.ind, joint.cor$metabolite, drop = FALSE]
+    f <- run.data$fibroblast[[key]][joint.subject$f.ind, joint.cor$metabolite, drop = FALSE]
+    make_stats <- function(indices, by_metabolite) {
+      results <- lapply(indices, function(i) {
+        if (by_metabolite) correlation_summary(p[, i], f[, i], method)
+        else correlation_summary(p[i, ], f[i, ], method)
+      })
+      pv <- vapply(results, function(x) x$p.value, numeric(1))
+      data.table(rho = round(vapply(results, function(x) x$estimate, numeric(1)), 2),
+                 pv = signif(pv, 2), padj = signif(p.adjust(pv, method = 'BH'), 2),
+                 n = vapply(results, function(x) x$n, integer(1)))
+    }
+    metabolite <- make_stats(seq_len(ncol(p)), TRUE)
+    sample <- make_stats(seq_len(nrow(p)), FALSE)
+  }
+  list(metabolite = cbind(joint.cor[, 1, with = FALSE], metabolite),
+       sample = cbind(joint.subject[, 1:2, with = FALSE], sample))
+})
+output$`PFcomparisonConcordance-metabolitesTitle` <- renderText({
+  paste0('Metabolite correlation by shared subjects (',
+         correlation_method_label(PFcomparisonConcordance.tableRequest()$method), ')')
+})
+output$`PFcomparisonConcordance-subjectsTitle` <- renderText({
+  paste0('Subject correlation by shared metabolites (',
+         correlation_method_label(PFcomparisonConcordance.tableRequest()$method), ')')
+})
+output$`PFcomparisonConcordance-metabolites` <- DT::renderDataTable({
+  DT::datatable(PFcomparisonConcordance.df()$metabolite, rownames = FALSE,
+                options = list(pageLength = 10, scrollX = TRUE), filter = 'top')
+}, server = FALSE)
+output$`PFcomparisonConcordance-subjects` <- DT::renderDataTable({
+  DT::datatable(PFcomparisonConcordance.df()$sample, rownames = FALSE,
+                options = list(pageLength = 10, scrollX = TRUE), filter = 'top')
+}, server = FALSE)
 output$`PFcomparisonConcordance-mStatDl` <- downloadHandler(
-  filename = 'metabolite_correlation_by_shared_subjects.csv',
-  content = function(con) {write.csv(PFcomparisonConcordance.df()[['metabolite']], con)}
+  filename = function() paste0('metabolite_correlation_by_shared_subjects_', PFcomparisonConcordance.tableRequest()$method, '.csv'),
+  content = function(con) write.csv(PFcomparisonConcordance.df()$metabolite, con, row.names = FALSE)
 )
 output$`PFcomparisonConcordance-sStatDl` <- downloadHandler(
-  filename = 'subject_correlation_by_shared_metabolites.csv',
-  content = function(con) {write.csv(PFcomparisonConcordance.df()[['sample']], con)}
+  filename = function() paste0('subject_correlation_by_shared_metabolites_', PFcomparisonConcordance.tableRequest()$method, '.csv'),
+  content = function(con) write.csv(PFcomparisonConcordance.df()$sample, con, row.names = FALSE)
 )
-PFcomparisonConcordance.metabDat<-reactive({
-  df<-data.table(Subject=with(joint.subject,paste(Subject,Dx,sep = "\n")),
-                 Dx=joint.subject$Dx,
-                 status=ifelse(joint.subject$Dx%in%c('unknown','unaffected'),joint.subject$Dx,'diagnosed'),
-                 plasma=round(run.data[['plasma']][[ifelse(input$`PFcomparisonConcordance-stat`=='untransformed data','mData','robustZ')]][,input$`PFcomparisonConcordance-metabolite`][joint.subject[['p.ind']]],3),
-                 fibroblast=round(run.data[['fibroblast']][[ifelse(input$`PFcomparisonConcordance-stat`=='untransformed data','mData','robustZ')]][,input$`PFcomparisonConcordance-metabolite`][joint.subject[['f.ind']]],3))
-  ggplotly(ggplot(df,aes(x=plasma,y=fibroblast,color=status,label=Subject))+geom_point(alpha=.5)+
-             ggtitle(paste0(with(cor.test(df$plasma,df$fibroblast),paste0(input$`PFcomparisonConcordance-metabolite`,ifelse(nchar(input$`PFcomparisonConcordance-metabolite`)<20,", ","\n"),"r=",round(estimate,2),ifelse(p.value<.05,'*','')))))+
-             theme_bw(),height = 300, width = 340)
-  
+PFcomparisonConcordance.metabDat <- reactive({
+  method <- PFcomparisonConcordance.method()
+  key <- if (input$`PFcomparisonConcordance-stat` == 'untransformed data') 'mData' else 'robustZ'
+  df <- data.table(Subject = with(joint.subject, paste(Subject, Dx, sep = '\n')),
+                   Dx = joint.subject$Dx,
+                   status = ifelse(joint.subject$Dx %in% c('unknown', 'unaffected'), joint.subject$Dx, 'diagnosed'),
+                   plasma = run.data$plasma[[key]][joint.subject$p.ind, input$`PFcomparisonConcordance-metabolite`],
+                   fibroblast = run.data$fibroblast[[key]][joint.subject$f.ind, input$`PFcomparisonConcordance-metabolite`])
+  # Preserve historical Pearson plots; rank full-precision values for Spearman.
+  if (method == 'pearson') df[, c('plasma', 'fibroblast') := lapply(.SD, round, 3), .SDcols = c('plasma', 'fibroblast')]
+  label <- correlation_label(df$plasma, df$fibroblast, method)
+  correlation_plotly(ggplot(df, aes(x = plasma, y = fibroblast, color = status, label = Subject)) +
+             geom_point(alpha = .5) +
+             ggtitle(paste0(input$`PFcomparisonConcordance-metabolite`, ', ', label)) +
+             theme_bw(), height = 300)
 })
-observeEvent(input$`PFcomparisonConcordance-metaboliteSubmit`,{
-  output$`PFcomparisonConcordance-metabolitePlot`<-renderPlotly(isolate(PFcomparisonConcordance.metabDat()))
+PFcomparisonConcordance.metaboliteResult <- reactiveVal(NULL)
+observeEvent(input$`PFcomparisonConcordance-metaboliteSubmit`, {
+  PFcomparisonConcordance.metaboliteResult(PFcomparisonConcordance.metabDat())
 })
-
-
-PFcomparisonConcordance.sampleDat<-reactive({
-  df<-data.table(metabolite=joint.cor$metabolite,
-                 plasma=round(run.data[['plasma']][[ifelse(input$`PFcomparisonConcordance-stat`=='untransformed data','mData','robustZ')]][
-                   with(run.data[['plasma']][['sample.info']],which(Subject==input$`PFcomparisonConcordance-sample` & centroid=='yes')),joint.cor$metabolite],3),
-                 fibroblast=round(run.data[['fibroblast']][[ifelse(input$`PFcomparisonConcordance-stat`=='untransformed data','mData','robustZ')]][
-                   with(run.data[['fibroblast']][['sample.info']],which(Subject==input$`PFcomparisonConcordance-sample` & centroid=='yes')),joint.cor$metabolite],3))
-  ggplotly(ggplot(df,aes(x=plasma,y=fibroblast,label=metabolite))+geom_point(alpha=.5,color='#E95420')+
-             ggtitle(paste0(with(cor.test(df$plasma,df$fibroblast),paste0(input$`PFcomparisonConcordance-sample`,", r=",round(estimate,2),ifelse(p.value<.05,'*','')))))+
-             theme_bw(),height = 300, width = 300)
+output$`PFcomparisonConcordance-metabolitePlot` <- renderPlotly({
+  req(PFcomparisonConcordance.metaboliteResult())
 })
-observeEvent(input$`PFcomparisonConcordance-sampleSubmit`,{
-  output$`PFcomparisonConcordance-samplePlot`<-renderPlotly(isolate(PFcomparisonConcordance.sampleDat()))
+PFcomparisonConcordance.sampleDat <- reactive({
+  method <- PFcomparisonConcordance.method()
+  key <- if (input$`PFcomparisonConcordance-stat` == 'untransformed data') 'mData' else 'robustZ'
+  subject <- input$`PFcomparisonConcordance-sample`
+  p.ind <- which(run.data$plasma$sample.info$Subject == subject & run.data$plasma$sample.info$centroid == 'yes')
+  f.ind <- which(run.data$fibroblast$sample.info$Subject == subject & run.data$fibroblast$sample.info$centroid == 'yes')
+  df <- data.table(metabolite = joint.cor$metabolite,
+                   plasma = as.numeric(run.data$plasma[[key]][p.ind, joint.cor$metabolite]),
+                   fibroblast = as.numeric(run.data$fibroblast[[key]][f.ind, joint.cor$metabolite]))
+  if (method == 'pearson') df[, c('plasma', 'fibroblast') := lapply(.SD, round, 3), .SDcols = c('plasma', 'fibroblast')]
+  correlation_plotly(ggplot(df, aes(x = plasma, y = fibroblast, label = metabolite)) +
+             geom_point(alpha = .5, color = '#E95420') +
+             ggtitle(paste0(subject, ', ', correlation_label(df$plasma, df$fibroblast, method))) +
+             theme_bw(), height = 300)
 })
-PFcomparisonConcordance.df<-reactive({
-  list(metabolite=cbind(joint.cor[,1,with=F],joint.stat$metabolite[[ifelse(input$`PFcomparisonConcordance-stat`=='untransformed data','m','z')]][,c('r','pv','padj'),with=F]),
-       sample=cbind(joint.subject[,1:2,with=F],joint.stat$sample[[ifelse(input$`PFcomparisonConcordance-stat`=='untransformed data','m','z')]][,c('r','pv','padj'),with=F]))
+PFcomparisonConcordance.sampleResult <- reactiveVal(NULL)
+observeEvent(input$`PFcomparisonConcordance-sampleSubmit`, {
+  PFcomparisonConcordance.sampleResult(PFcomparisonConcordance.sampleDat())
 })
-observeEvent(input$`PFcomparisonConcordance-statSubmit`,{
-  output$`PFcomparisonConcordance-metabolites`<-DT::renderDataTable({DT::datatable(isolate(PFcomparisonConcordance.df()[['metabolite']][,1:3,with=F]),rownames = F,options = list(pageLength=10),filter='top')})
-  output$`PFcomparisonConcordance-subjects`<-DT::renderDataTable({DT::datatable(isolate(PFcomparisonConcordance.df()[['sample']][,1:4,with=F]),rownames = F,options = list(pageLength=10),filter='top')})
+output$`PFcomparisonConcordance-samplePlot` <- renderPlotly({
+  req(PFcomparisonConcordance.sampleResult())
 })

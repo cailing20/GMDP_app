@@ -1,0 +1,21 @@
+# Runtime data is distributed separately from this source repository.
+/data
+
+# Local R libraries, caches, session state, and generated files.
+.R-library
+.cache/
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+Rplots.pdf
+*.log
+.DS_Store
+Thumbs.db
+
+# Local deployment records and authentication configuration.
+rsconnect/
+.Renviron
+.env
+.env.*
+manifest.json

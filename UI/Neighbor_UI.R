@@ -5,6 +5,8 @@ fluidPage(fluidRow(
          selectInput(inputId = 'neighbor-centroid',label = 'Exclude replicates',choices = c('yes','no'),selected = 'yes'),
          checkboxGroupInput(inputId = 'neighbor-dx',label = 'Samples to include',choices = c('diagnosed','unknown','unaffected'),selected = c('diagnosed','unknown','unaffected')),
          radioButtons(inputId = 'neighbor-distance',label = 'Choose ranking distance',choices = c('Euclidean distance'='euclidean','Absolute correlation distance'='correlation'),selected = 'euclidean'),
+         conditionalPanel("input['neighbor-distance'] === 'correlation'",
+                          correlation_method_input('neighbor-method')),
          actionButton(inputId = 'neighbor-submit',label = 'Submit')),
-  column(9,mainPanel(DT::dataTableOutput("neighbor-table",width = '1000px')))
+  column(9,h4(textOutput('neighbor-title')),mainPanel(DT::dataTableOutput("neighbor-table",width = '1000px')))
 ))

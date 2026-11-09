@@ -19,4 +19,3 @@ output$`ProcDl-button` <- downloadHandler(
     saveWorkbook(wb = isolate(ProcDl.data()), file = file,overwrite = T)
   }
 )
-shinyjs::disable("ProcDl-button")

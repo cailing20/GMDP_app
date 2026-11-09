@@ -1,0 +1,201 @@
+/* Preserve the compact controls and peach buttons used in the original figures.
+   Colors are the original Keynote screenshot converted to sRGB. */
+body {
+  color: #eb6536;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.shiny-input-container {
+  margin-bottom: 15px;
+}
+
+.shiny-input-container > label,
+.shiny-input-container .control-label {
+  font-weight: 400;
+  margin-bottom: 5px;
+}
+
+.selectize-input,
+.selectize-input input,
+.form-control,
+.form-select {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.selectize-input {
+  min-height: 30px;
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+
+.shiny-input-container .form-check {
+  min-height: 20px;
+}
+
+.shiny-input-container .form-check-input {
+  width: 14px;
+  height: 14px;
+}
+
+.shiny-input-radiogroup input[type="radio"],
+.shiny-input-checkboxgroup input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+}
+
+.shiny-input-container .form-check-input:checked {
+  background-color: #e95420;
+  border-color: #e95420;
+}
+
+.shiny-input-radiogroup[id$="-method"] .shiny-options-group {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.shiny-input-radiogroup[id$="-method"] .radio-inline {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.shiny-input-radiogroup[id$="-method"] .radio-inline input[type="radio"] {
+  position: static;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin: 0 4px 0 0;
+}
+
+.btn-default {
+  color: #e95420;
+  background-color: #f9d4c6;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.btn-default:hover,
+.btn-default:focus,
+.btn-default:active,
+.btn-default:active:focus {
+  color: #e95420;
+  background-color: #f5c5b2;
+  border-color: transparent;
+}
+
+.btn-default:focus-visible {
+  outline: 2px solid #e95420;
+  outline-offset: 2px;
+}
+
+/* Keep the four overview charts within the desktop viewport. Scope these rules
+   to the dashboard so analysis plots and tutorial images retain their sizes. */
+#gmdp-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 0.85fr) minmax(0, 1fr);
+  gap: 12px;
+  height: var(--gmdp-dashboard-height, calc(100vh - 100px));
+  min-height: 400px;
+}
+
+#gmdp-dashboard > .gmdp-dashboard-diagnosis {
+  grid-row: 1 / 4;
+}
+
+#gmdp-dashboard > .gmdp-dashboard-card {
+  min-width: 0;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+#gmdp-dashboard .card-header {
+  flex: 0 0 auto;
+  padding: 8px 42px 8px 12px;
+  overflow-wrap: anywhere;
+}
+
+#gmdp-dashboard .card-body {
+  min-width: 0;
+  min-height: 0;
+  padding: 8px;
+  overflow: hidden;
+}
+
+#gmdp-dashboard .card-body > img {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+#gmdp-dashboard .card[data-full-screen="false"] .bslib-full-screen-enter {
+  display: block;
+}
+
+#gmdp-dashboard .bslib-full-screen-enter {
+  top: 3px;
+  right: 2px;
+  bottom: auto;
+  padding: 0.45rem !important;
+}
+
+#gmdp-dashboard .bslib-full-screen-enter:focus-visible {
+  outline: 2px solid #e95420;
+  outline-offset: 2px;
+}
+
+.bslib-has-full-screen #gmdp-dashboard .card .bslib-full-screen-enter {
+  display: none;
+}
+
+@media (min-width: 992px) {
+  nav.navbar [data-value="Plasma-vs-fibroblast comparison"] + .dropdown-menu {
+    right: 0;
+    left: auto;
+  }
+}
+
+@media (max-width: 991.98px) {
+  nav.navbar .dropdown-menu {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  nav.navbar .dropdown-item {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* On phones, preserve readable chart sizes and use normal vertical scrolling. */
+@media (max-width: 767.98px) {
+  #gmdp-dashboard {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    height: auto;
+    min-height: 0;
+  }
+
+  #gmdp-dashboard > .gmdp-dashboard-diagnosis {
+    grid-row: auto;
+  }
+
+  #gmdp-dashboard .gmdp-dashboard-card:not([data-full-screen="true"]) .card-body > img {
+    flex: 0 0 auto;
+    height: auto;
+  }
+}

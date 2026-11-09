@@ -14,16 +14,16 @@ fluidPage(
       card_body(selectInput(inputId = "zscore-metabolite",label='Select metabolite',choices = sort(run.data$plasma$metabolite.info$metabolite),width = '90%'),
                 plotlyOutput("zscore-metabolitePlot",height = "400px"),
                 dataTableOutput("zscore-metaboliteTable"),
-                downloadButton(outputId = 'zscore-MetDl', label = "Download"))
+                downloadButton(outputId = 'zscore-MetDl', label = "Download"), fillable = FALSE)
     )),
     column(6,card(
-      card_header('View by metabolite'),
+      card_header('View by sample'),
       card_body(
         fluidRow(column(6,selectInput(inputId = "zscore-sampleDx",label='Select Dx',choices = c('all','unknown','unaffected',sort(setdiff(run.data$plasma$sample.info$Dx,c('unknown','unaffected')))))),
                  column(6,selectInput(inputId = "zscore-sample",label='Select sample',choices = run.data$plasma$sample.info$ID))),
         plotlyOutput("zscore-samplePlot",height = "400px"),
         dataTableOutput("zscore-sampleTable"),
-        downloadButton(outputId = 'zscore-SamDl', label = "Download"))
+        downloadButton(outputId = 'zscore-SamDl', label = "Download"), fillable = FALSE)
     ))
   )
 )
